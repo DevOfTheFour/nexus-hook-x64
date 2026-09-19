@@ -10,7 +10,7 @@ class NexusHook
 {
 public:
 	bool Init();
-	bool HookSwapChain(DWORD_PTR newFunc, int index);
+	bool HookSwapChain(std::uintptr_t newFunc, int index);
 
 	SwapChainManager hMngr;
 

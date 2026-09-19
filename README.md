@@ -74,7 +74,7 @@ bool Init();
 <br>
 
 ```cpp
-bool HookSwapChain(DWORD_PTR newFunc, int index);
+bool HookSwapChain(uintptr_t newFunc, int index);
 ```
 >Hooks the specified function of the current SwapChain. Returns true on success, false otherwise.
 
