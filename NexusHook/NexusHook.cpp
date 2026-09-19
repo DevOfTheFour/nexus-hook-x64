@@ -1,24 +1,33 @@
 #include "NexusHook.h"
 
-
 // Initialization
-bool NexusHook::Init() {
+bool NexusHook::Init()
+{
 
 	// Setup SwapChain
-	if (!hMngr.CreateDeviceAndSwapChain()) return false;
-	if (!hMngr.FindSwapChain()) return false;
+	if (!hMngr.CreateDeviceAndSwapChain())
+		return false;
+	if (!hMngr.FindSwapChain())
+		return false;
 
 	return true;
 }
 
 // Hooking
-bool NexusHook::HookSwapChain(DWORD_PTR newFunc, int index) {
+bool NexusHook::HookSwapChain(
+	std::uintptr_t newFunc,
+	int index)
+{
+	constexpr std::size_t SwapChainVTableSize =
+		SC_GETLASTPRESENTCOUNT + 1;
 
-	// Set up VMTHook
-	hkHooks[index] = VMTHook((PDWORD*)hMngr.pSwapChain);
+	hkHooks[index] =
+		VMTHook(hMngr.pSwapChain, SwapChainVTableSize);
 
-	// Hook function
-	if ((oFunctions[index] = hkHooks[index].Hook(newFunc, SC_PRESENT)) == NULL) return false;
+	oFunctions[index] =
+		hkHooks[index].Hook(
+			newFunc,
+			SC_PRESENT);
 
-	return true;
+	return oFunctions[index] != 0;
 }

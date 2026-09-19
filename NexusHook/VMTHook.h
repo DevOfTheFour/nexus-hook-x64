@@ -1,23 +1,39 @@
 #pragma once
 
-#include "Includes.h"
+#include <cstddef>
+#include <cstdint>
 
+class VMTHook
+{
+public:
+    using VTableEntry = std::uintptr_t;
 
-class VMTHook {
-	public:
-		VMTHook();
-		VMTHook(PDWORD* ppdwClassBase);
+    VMTHook() = default;
+    VMTHook(void* object, std::size_t count);
 
-		DWORD Hook(DWORD newFunc, int index);
-		void UnHook();
-		void ReHook();
+    VMTHook(const VMTHook&) = delete;
+    VMTHook& operator=(const VMTHook&) = delete;
 
+    VMTHook(VMTHook&& other) noexcept;
+    VMTHook& operator=(VMTHook&& other) noexcept;
 
-	private:
-		int iGetVMTCount(PDWORD pBase);
+    ~VMTHook();
 
-		int m_iVMTCount;
-		PDWORD* m_ppdwClassBase;
-		PDWORD m_pdwOldVMT;
-		PDWORD m_pdwNewVMT;
+    VTableEntry Hook(VTableEntry newFunc, std::size_t index);
+
+    void UnHook();
+    void ReHook();
+
+    [[nodiscard]]
+    bool IsValid() const noexcept;
+
+private:
+    void Reset() noexcept;
+
+private:
+    std::size_t m_count = 0;
+
+    VTableEntry** m_ppVTable = nullptr;
+    VTableEntry* m_pOldVTable = nullptr;
+    VTableEntry* m_pNewVTable = nullptr;
 };

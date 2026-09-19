@@ -1,7 +1,15 @@
-[![NexusHook](/banner.png)](https://github.com/nexus-devs)
+[![NexusHook](/banner.png)](https://github.com/DevOfTheFour/nexus-hook-x64)
 <p align="center">SwapChain hooking functionality for DirectX11 applications.</p>
 
 ##
+
+<br>
+
+## What's new in this fork
+- **x64 support** — correct pointer-sized scanning across the full user address space.
+- **SIMD-accelerated swap chain search** — SSE2 with runtime-detected AVX2, pointer-aligned iteration, heap-only (`MEM_PRIVATE` + RW) region filtering, region-wide SEH guard.
+- **Scanner fixes** — no infinite loop on `VirtualQuery` failure, dummy swap chain created without the debug layer (its wrapper class has a different vtable), candidates validated via `GetDevice`.
+- **`VMTHook` rewrite** — move semantics, RAII cleanup that restores the original VMT.
 
 <br>
 
@@ -13,25 +21,40 @@ Download the latest release, include `NexusHook.h` and link the `.lib` against y
 ## Usage
 ```cpp
 #include "NexusHook.h"
+#include <iostream>
 #pragma comment(lib, "NexusHook.lib")
 
-typedef HRESULT(__stdcall *D3D11PresentHook) (IDXGISwapChain* pThis, UINT SyncInterval, UINT Flags);
+// Signature of IDXGISwapChain::Present
+using D3D11PresentHook = HRESULT(STDMETHODCALLTYPE *)(IDXGISwapChain*, UINT, UINT);
+
 NexusHook hkMngr;
 
-// Present hook
-HRESULT __stdcall SwapChainPresentHook(IDXGISwapChain* pThis, UINT SyncInterval, UINT Flags) {
+// Called every frame instead of the original Present.
+// pThis is the game's swap chain - use it to grab the device/context on the first call.
+// Always forward to the original through oFunctions, otherwise rendering stops.
+HRESULT STDMETHODCALLTYPE SwapChainPresentHook(IDXGISwapChain* pThis, UINT SyncInterval, UINT Flags) {
     std::cout << "Hook called!" << std::endl;
-    return ((D3D11PresentHook)hkMngr.oFunctions[SC_PRESENT])(pThis, SyncInterval, Flags);
+
+    const auto original = reinterpret_cast<D3D11PresentHook>(hkMngr.oFunctions[SC_PRESENT]);
+    return original(pThis, SyncInterval, Flags);
 }
 
-void main() {
-	// Init hook manager
-	hkMngr.Init();
+int main() {
+    // Creates a dummy device, finds the game's swap chain in memory
+    if (!hkMngr.Init()) {
+        std::cerr << "Init failed" << std::endl;
+        return 1;
+    }
 
-	// Hook present
-	hkMngr.HookSwapChain((DWORD_PTR)SwapChainPresentHook, SC_PRESENT);
+    // Redirects vtable slot SC_PRESENT to SwapChainPresentHook
+    if (!hkMngr.HookSwapChain(reinterpret_cast<std::uintptr_t>(&SwapChainPresentHook), SC_PRESENT)) {
+        std::cerr << "Hook failed" << std::endl;
+        return 2;
+    }
 }
 ```
+
+> **Note:** the snippet above is a console demo. In a real setup this code lives inside a DLL injected into the target process.
 
 <br>
 <br>
@@ -58,7 +81,7 @@ bool HookSwapChain(DWORD_PTR newFunc, int index);
 | Argument | Description | Default |
 |:------------- |:------------- |:------------- |
 | newFunc | Pointer to your replacement function. | None |
-| url | Vtable index of the function you want to hook. | None |
+| index | Vtable index of the function you want to hook. | None |
 
 <br>
 
@@ -73,12 +96,12 @@ const static int iHookNumber = SC_GETLASTPRESENTCOUNT + 1;
 ```cpp
 VMTHook hkHooks[iHookNumber];
 ```
->All hooks stored in their respecting index number.
+>All hooks stored in their respective index number.
 
 <br>
 
 ```cpp
-DWORD oFunctions[iHookNumber] = { NULL };;
+std::uintptr_t oFunctions[iHookNumber] = { NULL };
 ```
 >All original functions from the original SwapChain.
 
@@ -91,5 +114,10 @@ SwapChainManager hMngr;
 
 <br>
 
+## Credits
+Based on [nexus-devs/nexus-hook](https://github.com/nexus-devs). Original swap chain location method by smallC (UnknownCheats), Dx11Indexes by c5 (guidedhacking.com).
+
+<br>
+
 ## License
-[MIT](https://github.com/nexus-devs/nexus-hook/blob/master/LICENSE.md)
+[MIT](LICENSE.md)
