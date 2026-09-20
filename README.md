@@ -120,4 +120,4 @@ Based on [nexus-devs/nexus-hook](https://github.com/nexus-devs). Original swap c
 <br>
 
 ## License
-[MIT](LICENSE.md)
+[MIT](LICENSE)
